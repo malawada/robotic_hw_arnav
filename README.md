@@ -1,31 +1,21 @@
-# Robotic_HW
-## Context
-The design of our cells in Machina Labs has evolved over the past years. Currently, each of our cells has two articulated industrial robots on rails (a total of 7 axes) and a frame with hydraulic clamps. For the parts to form correctly, we must exert and maintain a dynamic force during the forming in a very accurate location in space. Currently, each robot is equipped with a load cell. See a quick video about our process [here](https://www.youtube.com/watch?v=iqYMprTEXRI). We are using ROS2 to collect the data from the network and control the robots in real-time. As a robotic engineer, we keep developing different modules for our network to add features to the system.  
- 
-## Objective
-The goal of This project is to build a ROS2 network that collects data from 3-DOF sensors and makes the filtered data available as a ROS service and topic. Since we cannot send a real sensor to all of our applicants, we made a simple simulator (sensor.py) that mimics the behavior of a real sensor but with random data. 
-- The first task is to make a costume service for 3-DOF sensor 
-- The second task is to make a ROS2 service server that continuously reads data from the sensor and has the latest filter data available for the client service that you make. 
-- Finally, please make a simple client that calls two of these services and publishes them a topic with 500Hz. Please keep in mind that your service servers can run slower than 500Hz. 
-- You can define a second server in the simulator to modify the code and run two at the same time.
-- You can check the example.py to see how to make calls to the sensor
+# Robotic_HW - Arnav Malawade
 
-## Grading Criteria
-- We’re looking for code that is clean, readable, performant, and maintainable.
-- The developer must think through the process of deploying and using the solution and provide the necessary documentation. 
-- The sensor samples with 2000Hz, and you can request a specific number of samples in each call. Each call also has a ~1ms delay on top of the sampling time. We would like to hear your thought on picking the number of samples that you read in each call. 
+## Explanation of Solution
 
-## Submission
-To submit the assignment, do the following:
+### Servers
+I implemented two sensor servers, one for a 2000Hz sensor with 1ms latency and one for a 4000Hz sensor with 3ms latency.
+The 2000Hz sensor server uses a timer that requests data from the sensor every 2ms. The server requests 2 samples from the sensor each time. 
+This enables the server to have an effective rate of 1 sample / ms. The sensor data is collected into a local buffer and processed using kalman filtering to smooth the data and track the hidden state of the sensor features. The most recent filtered state estimate is returned to the client when the server is called. For the 4000Hz sensor, the timer requests data from the sensor every 4ms, and requests 4 samples each time, thus also achieving a 1 sample / ms effective rate.
 
-1. Navigate to GitHub's project import page: [https://github.com/new/import](https://github.com/new/import)
+### Client 
+The client is configured to call each server once every 2ms and request the latest filtered sensor data. I implemented a custom service called PollSensor(1,2).srv to return the array of sensor data from the server. The client then publishes the most recent data received from each sensor to a topic. The client is configured to send asynchronous requests to each server to avoid blocking and deadlocks. Each server is called independently; if the server response is delayed the client publishes the most recently received prior data from the corresponding sensor until the server response updates it (this is self.latest_resp_(1,2)). 
 
-2. In the box titled "Your old repository's clone URL", paste the homework repository's link: [https://github.com/Machina-Labs/robotic_hw](https://github.com/Machina-Labs/robotic_hw)
+### Limitations
+I have not used ROS2 before this week and learned a great deal during my process of configuring it and setting up these interfaces for the first time. I was able to resolve most of the bugs I encountered, but one remaining bug is that the code does not properly instantiate the second client for communicating with the second sensor's server. The code works with one client and one sensor server perfectly well, but I was not able to get the second server to run along with the first one in the time I had to implement this solution. 
 
-3. In the box titled "Repository Name", add a name for your local homework (ex. `Robotic_soln`)
+### If I spent more time on this project in the future, I would:
+1. Implement a more future-proof client and service definition using a base class for the sensor server that the two individual sensor servers would use with slightly different configurations. 
+2. Use the args passed to the main() of each service and client as a method to set up their parameters (e.g., networking, sampling rate, number of samples to request, etc.) via a centralized configuration file.
+3. Build a launch file for spinning all of the processes at the same time. 
+4. Identify real-world sensing requirements to align the polling and publishing rates accordingly.
 
-4. Set the privacy level to "Public", then click "Begin Import" button at bottom of the page.
-
-5. Develop your homework solution in the cloned repository and push it to GitHub when you're done. Extra points for good Git hygiene.
-
-6. Send us the link to your repository.
